@@ -16,7 +16,6 @@ var (
 	authServerURL = "https://auth.docker.io/token"
 	authService   = "registry.docker.io"
 	manifestType  = "application/vnd.docker.distribution.manifest.v2+json" // media type for v2 image manifest
-	layerType     = "application/vnd.docker.image.rootfs.diff.tar.gzip"
 	httpClient    = &http.Client{Timeout: 5 * time.Second}
 )
 
@@ -124,7 +123,7 @@ func (i *Image) pullLayer(l layer, token string) error {
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
-	req.Header.Add("Accept", layerType)
+	req.Header.Add("Accept", l.MediaType)
 	res, err := httpClient.Do(req)
 	if err != nil {
 		return err
