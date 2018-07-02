@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -38,8 +41,42 @@ type AuthToken struct {
 }
 
 func (i *Image) Pull() error {
-	// Todo: Check if the image is in store already
+	// Check if the image is in store already
+	exists, err := i.checkLocalManifest()
+	if err != nil {
+		return err
+	}
 
+	// Todo: update policy?
+	if exists {
+		fmt.Println("Image exists")
+		return nil
+	}
+
+	err = i.pullImage()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Check if a manifest for the image already exists on disk
+func (i *Image) checkLocalManifest() (bool, error) {
+	manifestPath := filepath.Join(i.Store.ManifestPath, i.User, i.Repo, i.Tag+".json")
+	_, err := os.Stat(manifestPath)
+	if err == nil { // file exists
+		return true, nil
+	}
+	if os.IsNotExist(err) { // file does not exist
+		return false, nil
+	}
+
+	return false, err // Some other error, maybe permissions?
+}
+
+// Pull image from registry
+func (i *Image) pullImage() error {
 	// Get Token
 	t := new(AuthToken)
 	err := i.getToken(t)
@@ -53,7 +90,6 @@ func (i *Image) Pull() error {
 	if err != nil {
 		return err
 	}
-	// Todo: write manifest file to disk
 
 	// Download layers to store
 	fmt.Println("Pulling layers...")
@@ -61,11 +97,41 @@ func (i *Image) Pull() error {
 		fmt.Printf("%d. %s \t %d\n", i, layer.Digest, layer.Size)
 	}
 
+	// write manifest to disk
+	err = i.saveManifest(m)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (i *Image) getManifest(token string, m *Manifest) error {
+// Todo: rkt implements CAS for manifests. interesting. See how to do that.
+// Manifest will be saved in ~/.spawner/manifests/<registry username>/<registry repo>/<tagname>.json
+func (i *Image) saveManifest(m *Manifest) error {
+	manifestJson, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
 
+	jsonFolder := filepath.Join(i.Store.ManifestPath, i.User, i.Repo)
+	err = os.MkdirAll(jsonFolder, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	jsonPath := filepath.Join(jsonFolder, i.Tag+".json")
+	err = ioutil.WriteFile(jsonPath, manifestJson, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Download manifest from registry
+func (i *Image) getManifest(token string, m *Manifest) error {
+	// example url: https://registry-1.docker.io/v2/library/ubuntu/manifests/latest
 	url := fmt.Sprintf("%s/%s/%s/manifests/%s", i.RegistryURL, i.User, i.Repo, i.Tag)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -93,6 +159,7 @@ func (i *Image) getManifest(token string, m *Manifest) error {
 	return nil
 }
 
+// Get bearer token from auth server
 func (i *Image) getToken(t *AuthToken) error {
 	// example url: https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/ubuntu:pull
 	url := fmt.Sprintf("%s?service=%s&scope=repository:%s/%s:pull", authServerURL, authService, i.User, i.Repo)

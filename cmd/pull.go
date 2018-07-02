@@ -3,9 +3,9 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
+	"fmt"
 	"github.com/vamc19/spawner/pkg/image"
 	"os"
-	"fmt"
 )
 
 var pullCmd = &cobra.Command{
