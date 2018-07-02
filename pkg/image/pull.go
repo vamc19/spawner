@@ -38,7 +38,7 @@ type AuthToken struct {
 }
 
 func (i *Image) Pull() error {
-	// Todo: Check if the image is in imagestore already
+	// Todo: Check if the image is in store already
 
 	// Get Token
 	t := new(AuthToken)
@@ -55,7 +55,7 @@ func (i *Image) Pull() error {
 	}
 	// Todo: write manifest file to disk
 
-	// Download layers to imagestore
+	// Download layers to store
 	fmt.Println("Pulling layers...")
 	for i, layer := range m.Layers {
 		fmt.Printf("%d. %s \t %d\n", i, layer.Digest, layer.Size)
