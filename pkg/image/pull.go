@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/vamc19/spawner/pkg/utils"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ var (
 	authServerURL = "https://auth.docker.io/token"
 	authService   = "registry.docker.io"
 	manifestType  = "application/vnd.docker.distribution.manifest.v2+json" // media type for v2 image manifest
+	layerType     = "application/vnd.docker.image.rootfs.diff.tar.gzip"
 	httpClient    = &http.Client{Timeout: 5 * time.Second}
 )
 
@@ -26,15 +28,17 @@ type Manifest struct { // v2
 		Size      int    `json:"size"`
 		Digest    string `json:"digest"`
 	} `json:"config"`
-	Layers []struct {
-		MediaType string   `json:"mediaType"`
-		Size      int      `json:"size"`
-		Digest    string   `json:"digest"`
-		Urls      []string `json:"urls"`
-	} `json:"layers"`
+	Layers []layer `json:"layers"`
 }
 
-type AuthToken struct {
+type layer struct {
+	MediaType string   `json:"mediaType"`
+	Size      int      `json:"size"`
+	Digest    string   `json:"digest"`
+	Urls      []string `json:"urls"`
+}
+
+type authToken struct {
 	Token     string `json:"token"`
 	ExpiresIn int    `json:"expires_in"`
 	IssuedAt  string `json:"issued_at"`
@@ -64,21 +68,13 @@ func (i *Image) Pull() error {
 // Check if a manifest for the image already exists on disk
 func (i *Image) checkLocalManifest() (bool, error) {
 	manifestPath := filepath.Join(i.Store.ManifestPath, i.User, i.Repo, i.Tag+".json")
-	_, err := os.Stat(manifestPath)
-	if err == nil { // file exists
-		return true, nil
-	}
-	if os.IsNotExist(err) { // file does not exist
-		return false, nil
-	}
-
-	return false, err // Some other error, maybe permissions?
+	return utils.CheckPathExists(manifestPath)
 }
 
 // Pull image from registry
 func (i *Image) pullImage() error {
 	// Get Token
-	t := new(AuthToken)
+	t := new(authToken)
 	err := i.getToken(t)
 	if err != nil {
 		return err
@@ -93,8 +89,8 @@ func (i *Image) pullImage() error {
 
 	// Download layers to store
 	fmt.Println("Pulling layers...")
-	for i, layer := range m.Layers {
-		fmt.Printf("%d. %s \t %d\n", i, layer.Digest, layer.Size)
+	for _, l := range m.Layers {
+		i.pullLayer(l, t.Token)
 	}
 
 	// write manifest to disk
@@ -102,6 +98,44 @@ func (i *Image) pullImage() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// Download layers. LeBron, Lonzo and Lance!
+func (i *Image) pullLayer(l layer, token string) error {
+	fmt.Printf("Downloading %s... \t", l.Digest)
+	layerPath := filepath.Join(i.Store.LayerPath, l.Digest)
+	exists, err := utils.CheckPathExists(layerPath)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		fmt.Printf("Layer already downloaded\n")
+		return nil
+	}
+
+	// Download tar
+	url := fmt.Sprintf("%s/%s/%s/blobs/%s", i.RegistryURL, i.User, i.Repo, l.Digest)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Accept", layerType)
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	err = utils.ExtractLayer(res.Body, layerPath)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Done\n")
 
 	return nil
 }
@@ -160,7 +194,7 @@ func (i *Image) getManifest(token string, m *Manifest) error {
 }
 
 // Get bearer token from auth server
-func (i *Image) getToken(t *AuthToken) error {
+func (i *Image) getToken(t *authToken) error {
 	// example url: https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/ubuntu:pull
 	url := fmt.Sprintf("%s?service=%s&scope=repository:%s/%s:pull", authServerURL, authService, i.User, i.Repo)
 	res, err := httpClient.Get(url)
