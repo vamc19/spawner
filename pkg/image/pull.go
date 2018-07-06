@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"strings"
 )
 
 var (
@@ -104,7 +105,8 @@ func (i *Image) pullImage() error {
 // Download layers. LeBron, Lonzo and Lance!
 func (i *Image) pullLayer(l layer, token string) error {
 	fmt.Printf("Downloading %s... \t", l.Digest)
-	layerPath := filepath.Join(i.Store.LayerPath, l.Digest)
+	layerName := strings.Split(l.Digest, ":")[1]
+	layerPath := filepath.Join(i.Store.LayerPath, layerName)
 	exists, err := utils.CheckPathExists(layerPath)
 	if err != nil {
 		return err
@@ -154,7 +156,7 @@ func (i *Image) saveManifest(m *Manifest) error {
 	}
 
 	jsonPath := filepath.Join(jsonFolder, i.Tag+".json")
-	err = ioutil.WriteFile(jsonPath, manifestJson, os.ModePerm)
+	err = ioutil.WriteFile(jsonPath, manifestJson, 666)
 	if err != nil {
 		return err
 	}
