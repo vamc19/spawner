@@ -1,14 +1,14 @@
 package image
 
 import (
-	"path/filepath"
-	"github.com/vamc19/spawner/pkg/utils"
-	"errors"
 	"encoding/json"
-	"os"
-	"io/ioutil"
+	"errors"
 	"fmt"
+	"github.com/vamc19/spawner/pkg/utils"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 type Manifest struct { // v2
@@ -35,11 +35,32 @@ type authToken struct {
 	IssuedAt  string `json:"issued_at"`
 }
 
-
 // Check if a manifest for the image already exists on disk
 func (i *Image) checkLocalManifest() (bool, error) {
-	manifestPath := filepath.Join(i.Store.ManifestPath, i.User, i.Repo, i.Tag+".json")
-	return utils.CheckPathExists(manifestPath)
+	return utils.CheckPathExists(i.getManifestPath())
+}
+
+// Load manifest from store
+func (i *Image) loadLocalManifest(m *Manifest) error {
+	manifestPath := i.getManifestPath()
+	manifestFile, err := os.Open(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	defer manifestFile.Close()
+
+	bv, err := ioutil.ReadAll(manifestFile)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(bv, &m)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Todo: rkt implements CAS for manifests. interesting. See how to do that.
@@ -57,7 +78,7 @@ func (i *Image) saveManifest(m *Manifest) error {
 	}
 
 	jsonPath := filepath.Join(jsonFolder, i.Tag+".json")
-	err = ioutil.WriteFile(jsonPath, manifestJson, 666)
+	err = ioutil.WriteFile(jsonPath, manifestJson, 0666)
 	if err != nil {
 		return err
 	}
@@ -111,4 +132,8 @@ func (i *Image) getToken(t *authToken) error {
 	}
 
 	return nil
+}
+
+func (i *Image) getManifestPath() string {
+	return filepath.Join(i.Store.ManifestPath, i.User, i.Repo, i.Tag+".json")
 }
