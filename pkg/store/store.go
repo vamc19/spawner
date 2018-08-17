@@ -1,20 +1,21 @@
 package store
 
 import (
-	"github.com/vamc19/spawner/pkg/utils"
-	"os"
+		"os"
 	"path/filepath"
 )
 
 var (
-	folderName     = ".spawner"
-	manifestFolder = "manifests"
-	layerFolder    = "layers"
+	defaultFolder   = "/var/lib/spawner"
+	manifestFolder  = "manifests"
+	layerFolder     = "layers"
+	containerFolder = "containers"
 )
 
 type Store struct {
-	ManifestPath string // path to manifest store
-	LayerPath    string // path to layer store
+	ManifestPath  string // path to manifest store
+	LayerPath     string // path to layer store
+	ContainerPath string // path to container store
 }
 
 func InitializeStore(path string) (Store, error) {
@@ -27,23 +28,18 @@ func InitializeStore(path string) (Store, error) {
 	// folders to create
 	manifestsPath := filepath.Join(absPath, manifestFolder)
 	layersPath := filepath.Join(absPath, layerFolder)
+	containersPath := filepath.Join(absPath, containerFolder)
 
-	for _, p := range []string{manifestsPath, layersPath} {
+	for _, p := range []string{manifestsPath, layersPath, containersPath} {
 		err = os.MkdirAll(p, os.ModePerm)
 		if err != nil {
 			return Store{}, err
 		}
 	}
 
-	return Store{manifestsPath, layersPath}, nil
+	return Store{manifestsPath, layersPath, containersPath}, nil
 }
 
 func DefaultStore() (Store, error) {
-	userHome, err := utils.GetUserHome()
-	if err != nil {
-		return Store{}, err
-	}
-
-	defaultFolder := filepath.Join(userHome, folderName)
 	return InitializeStore(defaultFolder)
 }
