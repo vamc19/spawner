@@ -3,10 +3,13 @@ package utils
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
+	"syscall"
 )
 
 func GetUserHome() (string, error) {
@@ -77,4 +80,42 @@ func ExtractLayer(r io.Reader, path string) error {
 	}
 
 	return nil
+}
+
+// Todo: Implement a filesystem interface to support other filesystems
+// Layers should be absolute paths ordered with top most layer at index 0
+func MountOverlayFS(layers []string, containerDir string, mountPoint string) (string, error) {
+
+	containerDir, _ = filepath.Abs(containerDir)
+	upperPath := filepath.Join(containerDir, "upper")
+	workPath := filepath.Join(containerDir, "work")
+
+	if mountPoint == "" {
+		mountPoint = filepath.Join(containerDir, "mount")
+	}
+
+	for _, p := range []string{upperPath, workPath, mountPoint} {
+		exists, err := CheckPathExists(p)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			err = os.MkdirAll(p, 0744)
+			if err != nil {
+				fmt.Println("Error creating working directory.")
+				return "", err
+			}
+		}
+	}
+
+	lowerDirs := strings.Join(layers, ":")
+	options := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerDirs, upperPath, workPath)
+
+	err := syscall.Mount("none", mountPoint, "overlay", 0, options)
+	if err != nil {
+		return "", err
+	}
+
+	return mountPoint, nil
 }
