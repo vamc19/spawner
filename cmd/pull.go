@@ -22,12 +22,13 @@ func init() {
 func pullImage(cmd *cobra.Command, args []string) {
 	i, err := image.InitializeImage(args[0])
 	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	err = i.Pull()
 	if err != nil {
-		fmt.Print(err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
