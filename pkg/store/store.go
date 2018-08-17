@@ -1,7 +1,7 @@
 package store
 
 import (
-		"os"
+	"os"
 	"path/filepath"
 )
 

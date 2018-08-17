@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	"github.com/vamc19/spawner/pkg/image"
 	"os"
 	"path/filepath"
-	"github.com/satori/go.uuid"
 )
 
 var (

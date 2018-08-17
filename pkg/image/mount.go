@@ -2,9 +2,9 @@ package image
 
 import (
 	"fmt"
-	"path/filepath"
 	"github.com/vamc19/spawner/pkg/utils"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -26,7 +26,7 @@ func (i *Image) Mount(mountPath string, workPath string) (string, error) {
 	}
 
 	var layers []string
-	for index := len(manifest.Layers)-1 ; index >= 0; index-- {
+	for index := len(manifest.Layers) - 1; index >= 0; index-- {
 		l := manifest.Layers[index]
 		layerName := strings.Split(l.Digest, ":")[1]
 		layerPath := filepath.Join(i.Store.LayerPath, layerName)
@@ -39,5 +39,5 @@ func (i *Image) Mount(mountPath string, workPath string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return mountPath, nil
 }

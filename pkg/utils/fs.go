@@ -6,20 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"syscall"
 )
-
-func GetUserHome() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-
-	return usr.HomeDir, nil
-}
 
 func CheckPathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
@@ -101,7 +91,7 @@ func MountOverlayFS(layers []string, containerDir string, mountPoint string) (st
 		}
 
 		if !exists {
-			err = os.MkdirAll(p, 0744)
+			err = os.MkdirAll(p, 0755)
 			if err != nil {
 				fmt.Println("Error creating working directory.")
 				return "", err

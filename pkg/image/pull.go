@@ -1,12 +1,12 @@
 package image
 
 import (
-			"fmt"
+	"fmt"
 	"github.com/vamc19/spawner/pkg/utils"
-		"net/http"
-		"path/filepath"
-	"time"
+	"net/http"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 var (
