@@ -23,6 +23,8 @@ func (i *Image) Mount(mountPath string, workPath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		_ = i.loadLocalManifest(&manifest)
 	}
 
 	var layers []string

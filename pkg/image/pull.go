@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 var (
 	authServerURL = "https://auth.docker.io/token"
 	authService   = "registry.docker.io"
 	manifestType  = "application/vnd.docker.distribution.manifest.v2+json" // media type for v2 image manifest
-	httpClient    = &http.Client{Timeout: 5 * time.Second}
+	httpClient    = &http.Client{}
 )
 
 func (i *Image) Pull() error {
@@ -56,7 +55,10 @@ func (i *Image) pullImage() error {
 	// Download layers to store
 	fmt.Println("Pulling layers...")
 	for _, l := range m.Layers {
-		i.pullLayer(l, t.Token)
+		err = i.pullLayer(l, t.Token)
+		if err != nil {
+			return err
+		}
 	}
 
 	// write manifest to disk
@@ -68,7 +70,7 @@ func (i *Image) pullImage() error {
 	return nil
 }
 
-// Download layers. LeBron, Lonzo and Lance!
+// Download layers.
 func (i *Image) pullLayer(l layer, token string) error {
 	fmt.Printf("Downloading %s... \t", l.Digest)
 	layerName := strings.Split(l.Digest, ":")[1]

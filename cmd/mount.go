@@ -37,12 +37,7 @@ func mountImage(cmd *cobra.Command, args []string) {
 	}
 
 	if workDir == "" {
-		tmpId, err := uuid.NewV4()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
+		tmpId := uuid.NewV4()
 		workDir = filepath.Join(os.TempDir(), tmpId.String())
 	}
 

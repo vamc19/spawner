@@ -1,11 +1,10 @@
 package utils
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -24,49 +23,17 @@ func CheckPathExists(path string) (bool, error) {
 }
 
 func ExtractLayer(r io.Reader, path string) error {
-	err := os.MkdirAll(path, os.ModePerm)
+	err := os.MkdirAll(path, 644)
 	if err != nil {
 		return err
 	}
 
-	gzipReader, err := gzip.NewReader(r)
+	cmd := exec.Command("tar", "-xz", "-C", path)
+	cmd.Stdin = r
+
+	err = cmd.Run()
 	if err != nil {
 		return err
-	}
-
-	tarReader := tar.NewReader(gzipReader)
-	for { // iterate over the contents of archive
-		header, err := tarReader.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-
-		// path of the current item
-		dst := filepath.Join(path, header.Name)
-
-		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(dst, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-
-			continue
-		}
-
-		// If it's not a directory, it has to be a file (?)
-		f, err := os.OpenFile(dst, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		_, err = io.Copy(f, tarReader)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -91,7 +58,7 @@ func MountOverlayFS(layers []string, containerDir string, mountPoint string) (st
 		}
 
 		if !exists {
-			err = os.MkdirAll(p, 0755)
+			err = os.MkdirAll(p, os.ModePerm)
 			if err != nil {
 				fmt.Println("Error creating working directory.")
 				return "", err
@@ -102,7 +69,7 @@ func MountOverlayFS(layers []string, containerDir string, mountPoint string) (st
 	lowerDirs := strings.Join(layers, ":")
 	options := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerDirs, upperPath, workPath)
 
-	err := syscall.Mount("none", mountPoint, "overlay", 0, options)
+	err := syscall.Mount("spawner-overlay", mountPoint, "overlay", 0, options)
 	if err != nil {
 		return "", err
 	}
